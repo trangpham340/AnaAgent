@@ -7,3 +7,6 @@ venv/
 env/
 .env
 *.log
+.greennode.json
+.agentbase/
+*.credentials.json
