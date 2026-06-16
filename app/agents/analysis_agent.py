@@ -10,11 +10,21 @@ class AnalysisAgent:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.model = "gpt-4.1-mini"
-        self.client = AsyncOpenAI(api_key=settings.openai_api_key) if settings.openai_api_key else None
+        self.openai_api_key = settings.openai_api_key.strip()
+        self.client = (
+            AsyncOpenAI(api_key=self.openai_api_key)
+            if self._is_supported_openai_key(self.openai_api_key)
+            else None
+        )
 
     async def analyze(self, request: AnalysisRequest) -> AnalysisResponse:
         if self.client is None:
-            return self._fallback_analysis(request)
+            reason = (
+                "OPENAI_API_KEY must start with 'sk-' to use live OpenAI analysis."
+                if self.openai_api_key
+                else "OPENAI_API_KEY is not configured."
+            )
+            return self._fallback_analysis(request, reason=reason)
 
         prompt = self._build_prompt(request)
         try:
@@ -53,7 +63,10 @@ class AnalysisAgent:
                 temperature=0.2,
             )
         except AuthenticationError:
-            return self._fallback_analysis(request, reason="OPENAI_API_KEY is invalid.")
+            return self._fallback_analysis(
+                request,
+                reason="OPENAI_API_KEY was rejected by OpenAI.",
+            )
         except APIError:
             return self._fallback_analysis(request, reason="OpenAI API request failed.")
 
@@ -83,6 +96,9 @@ class AnalysisAgent:
         except json.JSONDecodeError as exc:
             raise ValueError("AI response was not valid JSON.") from exc
 
+    def _is_supported_openai_key(self, api_key: str) -> bool:
+        return api_key.startswith("sk-")
+
     def _fallback_analysis(
         self,
         request: AnalysisRequest,
@@ -91,8 +107,9 @@ class AnalysisAgent:
         return AnalysisResponse(
             project_name=request.project_name,
             summary=(
-                f"{reason} This deterministic fallback confirms the API is working "
-                "and shows the expected response shape."
+                "Live AI analysis is unavailable, so this report uses a local fallback review. "
+                "Validate the input data, clarify goals and constraints, and review the findings "
+                "below before making business decisions."
             ),
             findings=[
                 Finding(
@@ -100,7 +117,7 @@ class AnalysisAgent:
                     severity="medium",
                     detail=reason,
                     recommendation=(
-                        "Update OPENAI_API_KEY in .env with a valid key before using live AI analysis."
+                        "Update OPENAI_API_KEY in .env with a valid OpenAI key that starts with 'sk-'."
                     ),
                 ),
                 Finding(
@@ -111,7 +128,7 @@ class AnalysisAgent:
                 ),
             ],
             next_steps=[
-                "Add OPENAI_API_KEY to .env.",
+                "Set a valid OpenAI API key in .env.",
                 "Send a representative project description to /api/v1/analyze.",
                 "Review findings and convert accepted recommendations into implementation tasks.",
             ],
