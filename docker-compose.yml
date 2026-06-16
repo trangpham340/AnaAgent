@@ -1,23 +1,21 @@
 services:
   api:
-    image: trangpham340/anaagent:latest
-    build: .
+    image: trangpham340/zalopay-agent-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.api
     env_file:
       - .env
     ports:
-      - "8000:8080"
-    volumes:
-      - ./app:/app/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
+      - "8080:8080"
   ui:
-    image: trangpham340/anaagent:latest
-    build: .
+    image: trangpham340/zalopay-agent-ui:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
     environment:
       API_BASE_URL: http://api:8080
     ports:
       - "8501:8501"
-    volumes:
-      - ./streamlit_app.py:/app/streamlit_app.py
     depends_on:
       - api
-    command: streamlit run streamlit_app.py --server.address 0.0.0.0 --server.port 8501

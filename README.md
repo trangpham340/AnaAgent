@@ -42,8 +42,9 @@ $env:API_BASE_URL="http://localhost:8000"
 streamlit run streamlit_app.py
 ```
 
-Open `http://localhost:8501`. The UI calls the FastAPI `/api/v1/analyze`
-endpoint and uses the same backend business logic as the API.
+Open `http://localhost:8501`. The UI accepts Excel, CSV, or TXT uploads, calls
+the FastAPI `/api/v1/analyze` endpoint, and uses the same backend business logic
+as the API.
 
 ## Docker
 
@@ -52,15 +53,17 @@ docker compose up --build
 ```
 
 `docker-compose.yml` loads runtime configuration from `.env`.
-The container listens on port `8080`, which matches the AgentBase Runtime contract.
+The FastAPI container listens on port `8080`, which matches the AgentBase Runtime contract.
 The Streamlit UI is available at `http://localhost:8501` when using Docker
 Compose.
 
 For plain Docker:
 
 ```powershell
-docker build -t anaagent:latest .
-docker run --env-file .env -p 8000:8080 anaagent:latest
+docker build -f Dockerfile.api -t trangpham340/zalopay-agent-api:latest .
+docker build -f Dockerfile.ui -t trangpham340/zalopay-agent-ui:latest .
+docker run --env-file .env -p 8080:8080 trangpham340/zalopay-agent-api:latest
+docker run -e API_BASE_URL=http://host.docker.internal:8080 -p 8501:8501 trangpham340/zalopay-agent-ui:latest
 ```
 
 ## Test

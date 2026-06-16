@@ -3,6 +3,7 @@ import os
 import urllib.error
 import urllib.request
 
+import pandas as pd
 import streamlit as st
 
 
@@ -55,9 +56,17 @@ def render_response(result: dict) -> None:
 
 
 def read_uploaded_file() -> str:
-    uploaded_file = st.file_uploader("Upload CSV or TXT", type=["csv", "txt"])
+    uploaded_file = st.file_uploader("Upload Excel, CSV, or TXT", type=["xlsx", "xls", "csv", "txt"])
     if uploaded_file is None:
         return ""
+
+    file_name = uploaded_file.name.lower()
+    if file_name.endswith((".xlsx", ".xls")):
+        sheets = pd.read_excel(uploaded_file, sheet_name=None)
+        content_blocks = []
+        for sheet_name, sheet in sheets.items():
+            content_blocks.append(f"Sheet: {sheet_name}\n{sheet.to_csv(index=False)}")
+        return "\n\n".join(content_blocks)
 
     return uploaded_file.getvalue().decode("utf-8", errors="replace")
 
