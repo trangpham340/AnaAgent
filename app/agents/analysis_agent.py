@@ -9,28 +9,20 @@ from app.models.analysis import AnalysisRequest, AnalysisResponse, Finding
 class AnalysisAgent:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        self.model = "gpt-4.1-mini"
-        self.openai_api_key = settings.openai_api_key.strip()
-        self.client = (
-            AsyncOpenAI(api_key=self.openai_api_key)
-            if self._is_supported_openai_key(self.openai_api_key)
-            else None
-        )
+        self.model = settings.llm_model.strip()
+        self.llm_api_key = (settings.llm_api_key or settings.openai_api_key).strip()
+        self.llm_base_url = settings.llm_base_url.strip()
+        self.client = AsyncOpenAI(api_key=self.llm_api_key, base_url=self.llm_base_url) if self.llm_api_key else None
 
     async def analyze(self, request: AnalysisRequest) -> AnalysisResponse:
         if self.client is None:
-            reason = (
-                "OPENAI_API_KEY must start with 'sk-' to use live OpenAI analysis."
-                if self.openai_api_key
-                else "OPENAI_API_KEY is not configured."
-            )
-            return self._fallback_analysis(request, reason=reason)
+            return self._fallback_analysis(request, reason="LLM API key is not configured.")
 
         prompt = self._build_prompt(request)
         try:
-            response = await self.client.responses.create(
+            response = await self.client.chat.completions.create(
                 model=self.model,
-                input=[
+                messages=[
                     {
                         "role": "system",
                         "content": (
@@ -65,16 +57,17 @@ class AnalysisAgent:
         except AuthenticationError:
             return self._fallback_analysis(
                 request,
-                reason="OPENAI_API_KEY was rejected by OpenAI.",
+                reason="LLM API key was rejected by the configured provider.",
             )
         except APIError:
-            return self._fallback_analysis(request, reason="OpenAI API request failed.")
+            return self._fallback_analysis(request, reason="LLM API request failed.")
 
-        parsed = self._parse_json(response.output_text)
+        content = response.choices[0].message.content or ""
+        parsed = self._parse_json(content)
         return AnalysisResponse(
             project_name=request.project_name,
             summary=parsed["summary"],
-            findings=[Finding(**finding) for finding in parsed["findings"]],
+            findings=[Finding(**self._normalize_finding(finding)) for finding in parsed["findings"]],
             next_steps=parsed["next_steps"],
             model_used=self.model,
             source="openai",
@@ -91,18 +84,26 @@ class AnalysisAgent:
         )
 
     def _parse_json(self, text: str) -> dict:
+        cleaned = text.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+
         try:
-            return json.loads(text)
+            return json.loads(cleaned)
         except json.JSONDecodeError as exc:
             raise ValueError("AI response was not valid JSON.") from exc
 
-    def _is_supported_openai_key(self, api_key: str) -> bool:
-        return api_key.startswith("sk-")
+    def _normalize_finding(self, finding: dict) -> dict:
+        normalized = dict(finding)
+        normalized["severity"] = str(normalized.get("severity", "medium")).lower()
+        if normalized["severity"] not in {"low", "medium", "high", "critical"}:
+            normalized["severity"] = "medium"
+        return normalized
 
     def _fallback_analysis(
         self,
         request: AnalysisRequest,
-        reason: str = "OPENAI_API_KEY is not configured.",
+        reason: str = "LLM API key is not configured.",
     ) -> AnalysisResponse:
         return AnalysisResponse(
             project_name=request.project_name,
@@ -117,7 +118,7 @@ class AnalysisAgent:
                     severity="medium",
                     detail=reason,
                     recommendation=(
-                        "Update OPENAI_API_KEY in .env with a valid OpenAI key that starts with 'sk-'."
+                        "Set LLM_API_KEY or OPENAI_API_KEY in .env and verify LLM_BASE_URL and LLM_MODEL."
                     ),
                 ),
                 Finding(
@@ -128,7 +129,7 @@ class AnalysisAgent:
                 ),
             ],
             next_steps=[
-                "Set a valid OpenAI API key in .env.",
+                "Set a valid LLM API key in .env.",
                 "Send a representative project description to /api/v1/analyze.",
                 "Review findings and convert accepted recommendations into implementation tasks.",
             ],

@@ -12,11 +12,14 @@ python -m venv .venv
 pip install -r requirements-dev.txt
 ```
 
-Add your real API key to `.env`. Use `.env.template` or `.env.example` as the dummy
-template:
+Add your real LLM API key to `.env`. Use `.env.template` or `.env.example` as the
+dummy template. GreenNode `vn-...` keys are supported through the OpenAI-compatible
+endpoint:
 
 ```env
 OPENAI_API_KEY=your-real-key
+LLM_BASE_URL=https://maas-llm-aiplatform-hcm.api.vngcloud.vn/v1
+LLM_MODEL=qwen/qwen3-5-27b
 ```
 
 ## Run
