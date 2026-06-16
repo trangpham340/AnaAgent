@@ -8,5 +8,8 @@ env/
 .env
 *.log
 .greennode.json
+.greennode.json.txt
 .agentbase/
 *.credentials.json
+greennode-credentials.json
+greennode-agentbase-skills-main/
