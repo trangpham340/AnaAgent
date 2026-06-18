@@ -7,7 +7,10 @@ import pandas as pd
 import streamlit as st
 
 
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000").rstrip("/")
+API_BASE_URL = os.getenv(
+    "API_BASE_URL",
+    "https://endpoint-afe1f857-2970-4f3b-acf6-a26e8730331c.agentbase-runtime.aiplatform.vngcloud.vn",
+).rstrip("/")
 
 
 def split_lines(value: str) -> list[str]:
