@@ -22,6 +22,16 @@ def create_app() -> FastAPI:
 
     app.include_router(analysis_router, prefix="/api/v1", tags=["analysis"])
 
+    @app.get("/", tags=["root"])
+    def root() -> dict[str, str]:
+        return {
+            "status": "ok",
+            "service": settings.app_name,
+            "docs": "/docs",
+            "health": "/health",
+            "analyze": "/api/v1/analyze",
+        }
+
     @app.get("/health", tags=["health"])
     def health_check() -> dict[str, str]:
         return {"status": "ok", "environment": settings.app_env}

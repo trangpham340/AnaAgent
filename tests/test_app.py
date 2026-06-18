@@ -6,6 +6,17 @@ from app.main import app
 client = TestClient(app)
 
 
+def test_root_returns_public_api_links() -> None:
+    response = client.get("/")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["docs"] == "/docs"
+    assert body["health"] == "/health"
+    assert body["analyze"] == "/api/v1/analyze"
+
+
 def test_health_check() -> None:
     response = client.get("/health")
 
